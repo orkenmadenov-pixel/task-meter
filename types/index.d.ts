@@ -8,6 +8,6 @@ export type Task = {
 
 declare module 'claude-code' {
   interface PluginState {
-    'task-meter': { tasks: Task[] }
+    'task-meter': { tasks: Task[]; isHidden: boolean }
   }
 }
