@@ -1,1 +1,1 @@
-{ "name": "task-meter", "version": "0.6.0", "description": "Task progress, difficulty, tokens and a daily budget of the weekly limit above the prompt", "license": "MIT", "types": "./types/index.d.ts" }
+{ "name": "task-meter", "version": "0.7.0", "description": "Task progress, difficulty, tokens and a daily budget of the weekly limit above the prompt", "license": "MIT", "types": "./types/index.d.ts" }
