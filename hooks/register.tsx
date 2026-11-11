@@ -90,6 +90,7 @@ const lang = atom({ plugin: 'task-meter', key: 'lang' } as const, 'en' as Lang)
 const TEXT = {
   ru: {
     tasks: 'Задачи', today: 'Сегодня', none: 'нет', tok: 'ток.', of: 'из', week: 'неделя',
+    left: 'осталось', ok: 'в норме', near80: 'почти исчерпано', overShort: 'превышено',
     hide: 'Скрыть', show: 'Показать',
     noData: (k: string) => `Недельный лимит: нет данных (окна: ${k})`,
     error: (m: string) => `Недельный лимит: ошибка ${m}`,
@@ -98,6 +99,7 @@ const TEXT = {
   },
   en: {
     tasks: 'Tasks', today: 'Today', none: 'none', tok: 'tok', of: 'of', week: 'week',
+    left: 'left', ok: 'on track', near80: 'almost used', overShort: 'over',
     hide: 'Hide', show: 'Show',
     noData: (k: string) => `Weekly limit: no data (windows: ${k})`,
     error: (m: string) => `Weekly limit: error ${m}`,
@@ -112,7 +114,13 @@ const toLang = (v: unknown): Lang | null => {
   return s.startsWith('ru') || s.startsWith('рус') ? 'ru' : 'en'
 }
 
+// The language the person writes in: Cyrillic text means Russian.
+const langOfText = (text: string): Lang | null =>
+  /[а-яё]/i.test(text) ? 'ru' : /[a-z]/i.test(text) ? 'en' : null
+
 async function detectLang($: EngineInterface): Promise<Lang> {
+  const saved = toLang(await $.store.get('lang'))
+  if (saved) return saved
   const row = (await $.config.list()).find(r => r.key === 'language')
   const fromSetting = toLang(row?.value)
   if (fromSetting) return fromSetting
@@ -205,6 +213,16 @@ export const register: Register = on => {
     return result
   })
 
+  // Follow the language of what the person types, and remember it for new chats.
+  on('prompt.submit', async ($, e, next) => {
+    const found = e.isMeta ? null : langOfText(e.text)
+    if (found && found !== (await read($, lang))) {
+      await update($, lang, () => found)
+      await $.store.set('lang', found)
+    }
+    return next(e)
+  }).catch(($, e, next) => next(e))
+
   on('prompt.compose', async ($, e, next) => {
     const result = await next(e)
     return {
@@ -277,15 +295,9 @@ export const register: Register = on => {
           <Box>
             <Text color="cyan">● </Text>
             <Text bold>{L.tasks.padEnd(8)}</Text>
-            {list.length ? (
-              <>
-                <Text color="cyan">{dots(share)}</Text>
-                <Text>  {done}/{list.length}</Text>
-                {total > 0 ? <Text dimColor>  · {fmt(total)} {L.tok}</Text> : null}
-              </>
-            ) : (
-              <Text dimColor>{L.none}</Text>
-            )}
+            {list.length ? <Text color="cyan">{dots(share)}</Text> : <Text dimColor>{L.none}</Text>}
+            {list.length ? <Text>  {done}/{list.length}</Text> : null}
+            {total > 0 ? <Text dimColor>  · {fmt(total)} {L.tok}</Text> : null}
           </Box>
           <Button key="hide" label={L.hide} onPress={() => setHidden($, true)} />
         </Box>
@@ -295,8 +307,9 @@ export const register: Register = on => {
             <Text color={state}>● </Text>
             <Text bold>{L.today.padEnd(8)}</Text>
             <Text color={state}>{dots(dayFill)}</Text>
+            <Text color={state} bold>  {state === 'red' ? L.overShort : state === 'yellow' ? L.near80 : L.ok}</Text>
             <Text>  {pc(w.today)} {L.of} {pc(w.budget)}</Text>
-            <Text dimColor>  · {L.week} {pc(w.used)}</Text>
+            <Text dimColor>  · {L.left} {pc(Math.max(0, w.budget - w.today))} · {L.week} {pc(w.used)}</Text>
           </Box>
         ) : wNote ? (
           <Box>
