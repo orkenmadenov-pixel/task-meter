@@ -1,0 +1,5 @@
+{
+  "name": "task-meter",
+  "owner": { "name": "orkenmadenov-pixel" },
+  "plugins": [{ "name": "task-meter", "source": "./" }]
+}
