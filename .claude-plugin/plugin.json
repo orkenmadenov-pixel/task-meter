@@ -1,1 +1,1 @@
-{ "name": "task-meter", "version": "0.1.0", "description": "Shows completion percent and difficulty for the current task list above the prompt", "license": "MIT", "types": "./types/index.d.ts" }
+{ "name": "task-meter", "version": "0.2.0", "description": "Shows completion percent and difficulty for the current task list above the prompt", "license": "MIT", "types": "./types/index.d.ts" }
