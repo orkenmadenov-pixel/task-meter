@@ -1,10 +1,18 @@
 import { atom, read, update } from 'claude-code'
-import type { Register } from 'claude-code'
+import type { EngineInterface, Register } from 'claude-code'
 
 import type { Task } from '../types'
 
 // The task list as the model last set it through update_plan.
 const tasks = atom({ plugin: 'task-meter', key: 'tasks' } as const, [] as Task[])
+
+// Whether the person collapsed the band; remembered across chats in $.store.
+const isHidden = atom({ plugin: 'task-meter', key: 'isHidden' } as const, false)
+
+async function setHidden($: EngineInterface, value: boolean) {
+  await update($, isHidden, () => value)
+  await $.store.set('hidden', value)
+}
 
 const PLAN_TOOL = 'mcp__ccd_turn__update_plan'
 
@@ -79,6 +87,13 @@ const bar = (pct: number) => {
 }
 
 export const register: Register = on => {
+  // A new chat starts the way the person last left the band.
+  on('session.start', async ($, e, next) => {
+    const saved = await $.store.get('hidden')
+    await update($, isHidden, () => saved === true)
+    return next(e)
+  })
+
   on('prompt.compose', async ($, e, next) => {
     const result = await next(e)
     return {
@@ -110,13 +125,32 @@ export const register: Register = on => {
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
-    const list = await read($, tasks)
-
-    if (e.props.hasSurvey || list.length === 0) {
+    if (e.props.hasSurvey) {
       return next(e)
     }
 
-    const { Box, Text } = $.ui.resolve(e)
+    const list = await read($, tasks)
+    const hidden = await read($, isHidden)
+    const { Box, Text, Button } = $.ui.resolve(e)
+
+    if (hidden) {
+      return (
+        <Box>
+          <Button key="show" label="Показать задачи" onPress={() => setHidden($, false)} />
+        </Box>
+      )
+    }
+
+    const hide = <Button key="hide" label="Скрыть" onPress={() => setHidden($, true)} />
+
+    if (list.length === 0) {
+      return (
+        <Box>
+          <Text dimColor>Задач пока нет  </Text>
+          {hide}
+        </Box>
+      )
+    }
 
     const done = list.filter(t => t.status === 'completed').length
     const pct = Math.round((done / list.length) * 100)
@@ -135,6 +169,8 @@ export const register: Register = on => {
           <Text color="green">{bar(pct)}</Text>
           {avg > 0 ? <Text color={COLOR[avg]}>  сложность: {LEVEL[avg]} {DOTS[avg]}</Text> : null}
           {total > 0 ? <Text dimColor>  токены: {fmt(total)}</Text> : null}
+          <Text>  </Text>
+          {hide}
         </Box>
         {list.map((t, i) => (
           <Box key={`t${i}`}>
